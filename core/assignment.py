@@ -6,7 +6,8 @@ for A/B testing using consistent hashing and fractional traffic allocation.
 """
 
 from dataclasses import dataclass
-from typing import Protocol, Dict, List, Tuple
+from typing import Protocol, Dict, List, Tuple, Any
+from typing import runtime_checkable
 import math
 import time
 
@@ -94,7 +95,7 @@ class ExperimentConfig:
 # ---------------------------------------------------------------------------
 # 2. Hashing Architecture
 # ---------------------------------------------------------------------------
-
+@runtime_checkable
 class HashFunction(Protocol):
     """
     Structural protocol defining an interchangeable hashing strategy.
@@ -158,6 +159,10 @@ class HashAssignment:
             hash_fn (HashFunction): An object or function satisfying the HashFunction 
                 protocol. Defaults to `murmur_hash`.
         """
+        if not hasattr(hash_fn, "max_value"):
+            raise ValueError(
+                f"{hash_fn} must define a 'max_value' attribute"
+            )
         self._hash_fn = hash_fn
 
     def _to_unit_interval(self, user_id: str, config: ExperimentConfig) -> float:
@@ -173,7 +178,7 @@ class HashAssignment:
         """
         composite_key = f"{user_id}:{config.experiment_id}:{config.salt}"
         raw_hash = self._hash_fn(composite_key)
-        return raw_hash / self._hash_fn.max_value
+        return raw_hash / (self._hash_fn.max_value+ 1)
 
     def assign(self, user_id: str, config: ExperimentConfig) -> str:
         """
@@ -235,10 +240,9 @@ class AssignmentLogger:
 
         Args:
             assigner (HashAssignment): The downstream evaluation instance.
-            log (DataFrame): 
         """
         self._assigner = assigner
-        self._log: List[Dict[str, any]] = []
+        self._log: List[Dict[str, Any]] = []
 
     def assign_and_log(self, user_id: str, config: ExperimentConfig) -> str:
         """
@@ -263,7 +267,7 @@ class AssignmentLogger:
         self._log.append(event_payload)
         return variant
 
-    def flush_logs(self) -> List[Dict[str, any]]:
+    def flush_logs(self) -> List[Dict[str, Any]]:
         """
         Extracts all captured assignment events and clears the internal buffer.
 
@@ -272,7 +276,7 @@ class AssignmentLogger:
         storage (e.g., a Pandas DataFrame, an SQLite database, or a Kafka stream).
 
         Returns:
-            List[Dict[str, any]]: A list of event payloads recorded since the last flush.
+            List[Dict[str, Any]]: A list of event payloads recorded since the last flush.
         """
         records = self._log
         self._log = []
