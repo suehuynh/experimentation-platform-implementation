@@ -1,5 +1,5 @@
 """
-Experimentation Platform Design Project.
+Experimentation Platform: Hash Assignment.
 
 This module provides stateless, deterministic user-to-variant mapping 
 for A/B testing using consistent hashing and fractional traffic allocation.
